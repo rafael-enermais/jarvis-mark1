@@ -12,12 +12,12 @@ Configuracao (Streamlit Cloud > Settings > Secrets, ou arquivo .env local):
 """
 import base64
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import streamlit as st
 
-APP_VERSION = "0.2.1"  # atualizar a cada versao nova
+APP_VERSION = "0.2.2"  # atualizar a cada versao nova
 SCHEMA = "gestao"
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo-enermais-grupo.png")
 
@@ -171,9 +171,19 @@ def carregar(_db, nome, ordem=None, desc=False, limite=None):
     return tabela(_db, nome, order=ordem, desc=desc, limit=limite)
 
 
+def _fuso():
+    """Horario de Brasilia (America/Sao_Paulo). O servidor do Streamlit roda em UTC, por isso converte aqui."""
+    try:
+        from zoneinfo import ZoneInfo
+
+        return ZoneInfo("America/Sao_Paulo")
+    except Exception:
+        return timezone(timedelta(hours=-3))  # Brasil sem horario de verao desde 2019
+
+
 def rotulo_data(v):
     try:
-        return datetime.fromisoformat(str(v).replace("Z", "+00:00")).astimezone().strftime("%d/%m/%Y %H:%M")
+        return datetime.fromisoformat(str(v).replace("Z", "+00:00")).astimezone(_fuso()).strftime("%d/%m/%Y %H:%M")
     except Exception:
         return "—"
 
