@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import streamlit as st
 
-APP_VERSION = "0.3"  # atualizar a cada versao nova
+APP_VERSION = "0.3.1"  # atualizar a cada versao nova
 SCHEMA = "gestao"
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo-enermais-grupo.png")
 
@@ -293,9 +293,11 @@ elif pagina == "Demandas":
         v = v.assign(_o=v["prioridade"].map(ordem_prio).fillna(2)).sort_values(["_o", "projeto"])
         v = v.assign(prioridade=v["prioridade"].map(lambda x: rotulo_prio.get(x, x)))
         st.write(f"{len(v)} demanda(s) na lista")
-        mostrar(v, ["prioridade", "projeto", "titulo", "depende_de", "status", "prazo"],
+        if "detalhe" not in v.columns:
+            v = v.assign(detalhe=None)
+        mostrar(v, ["prioridade", "projeto", "titulo", "depende_de", "detalhe", "prazo", "status"],
                 {"prioridade": "Prioridade", "projeto": "Projeto", "titulo": "Demanda", "depende_de": "Depende de",
-                 "status": "Status", "prazo": "Prazo"})
+                 "detalhe": "Responsável", "prazo": "Cobrar em / prazo", "status": "Status"})
 
 elif pagina == "Histórico de evoluções":
     st.title("Histórico de evoluções")
