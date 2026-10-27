@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import streamlit as st
 
-APP_VERSION = "0.2.2"  # atualizar a cada versao nova
+APP_VERSION = "0.3"  # atualizar a cada versao nova
 SCHEMA = "gestao"
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo-enermais-grupo.png")
 
@@ -152,7 +152,7 @@ if not meu:
         st.rerun()
     st.stop()
 
-PAGINAS = ["Visão geral", "Projetos", "Pendências", "Histórico de evoluções", "Métricas", "Fila de comandos"]
+PAGINAS = ["Visão geral", "Projetos", "Demandas", "Histórico de evoluções", "Métricas", "Fila de comandos"]
 with st.sidebar:
     render_logo(height=64)
     st.header("Jarvis Mark 1")
@@ -260,17 +260,41 @@ elif pagina == "Projetos":
             mostrar(ee.head(30), ["quando", "versao", "tipo", "resumo"],
                     {"quando": "Data", "versao": "Versão", "tipo": "Tipo", "resumo": "O que mudou"})
 
-elif pagina == "Pendências":
-    st.title("Pendências")
+elif pagina == "Demandas":
+    st.title("Demandas de todos os projetos")
+    st.caption("Vem do bloco PENDÊNCIAS de cada handoff (a ponte atualiza a cada 15 min). Para criar, mudar ou resolver uma demanda: edite o handoff do projeto, ou peça ao Claude na conversa do projeto.")
     if pend.empty:
         st.info("Nenhuma pendência registrada ainda. Elas entram quando os handoffs ganharem o bloco PENDÊNCIAS.")
     else:
-        deps = sorted(pend["depende_de"].unique())
-        dep = st.multiselect("Depende de", deps, default=["rafael"] if "rafael" in deps else [])
-        v = pend if not dep else pend[pend["depende_de"].isin(dep)]
-        v = v.assign(projeto=v["projeto_id"].map(nome_proj))
-        mostrar(v, ["projeto", "titulo", "depende_de", "prioridade", "status", "prazo"],
-                {"projeto": "Projeto", "titulo": "Pendência", "depende_de": "Depende de", "prioridade": "Prioridade",
+        ordem_prio = {"critica": 0, "alta": 1, "media": 2, "baixa": 3}
+        rotulo_prio = {"critica": "🔴 crítica", "alta": "🟠 alta", "media": "🟡 média", "baixa": "⚪ baixa"}
+        base = pend.assign(projeto=pend["projeto_id"].map(nome_proj))
+        abertas = base[base["status"].isin(["aberta", "em_andamento"])]
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Abertas", len(abertas))
+        m2.metric("Dependem do Rafael", int((abertas["depende_de"] == "rafael").sum()))
+        m3.metric("Dependem do Claude", int((abertas["depende_de"] == "claude").sum()))
+        m4.metric("Prioridade alta/crítica", int(abertas["prioridade"].isin(["alta", "critica"]).sum()))
+        f1, f2, f3 = st.columns(3)
+        deps = sorted(base["depende_de"].unique())
+        dep = f1.multiselect("Depende de", deps, default=["rafael"] if "rafael" in deps else [])
+        projs = sorted(p for p in base["projeto"].dropna().unique())
+        sel_proj = f2.multiselect("Projeto", projs)
+        prios = [x for x in ["critica", "alta", "media", "baixa"] if x in set(base["prioridade"])]
+        sel_prio = f3.multiselect("Prioridade", prios, format_func=lambda x: rotulo_prio.get(x, x))
+        com_resolvidas = st.checkbox("Mostrar também as resolvidas/descartadas")
+        v = base if com_resolvidas else abertas
+        if dep:
+            v = v[v["depende_de"].isin(dep)]
+        if sel_proj:
+            v = v[v["projeto"].isin(sel_proj)]
+        if sel_prio:
+            v = v[v["prioridade"].isin(sel_prio)]
+        v = v.assign(_o=v["prioridade"].map(ordem_prio).fillna(2)).sort_values(["_o", "projeto"])
+        v = v.assign(prioridade=v["prioridade"].map(lambda x: rotulo_prio.get(x, x)))
+        st.write(f"{len(v)} demanda(s) na lista")
+        mostrar(v, ["prioridade", "projeto", "titulo", "depende_de", "status", "prazo"],
+                {"prioridade": "Prioridade", "projeto": "Projeto", "titulo": "Demanda", "depende_de": "Depende de",
                  "status": "Status", "prazo": "Prazo"})
 
 elif pagina == "Histórico de evoluções":
