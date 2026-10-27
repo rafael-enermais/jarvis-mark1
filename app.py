@@ -17,7 +17,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-APP_VERSION = "0.2"  # atualizar a cada versao nova
+APP_VERSION = "0.2.1"  # atualizar a cada versao nova
 SCHEMA = "gestao"
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo-enermais-grupo.png")
 
@@ -31,6 +31,17 @@ st.markdown(
 hr { border-color: #3A3B40 !important; opacity: 0.6; }
 [data-testid="stMetric"] { background: #1A1A1D; border: 1px solid #2A2B30; border-radius: 8px; padding: 10px 14px; }
 [data-testid="stForm"] { background: #1A1A1D; border: 1px solid #2A2B30; border-radius: 10px; }
+/* campos de digitacao: fundo mais escuro que o cartao, borda clara, texto branco, cursor laranja */
+[data-baseweb="input"], [data-baseweb="base-input"], [data-baseweb="select"] > div, [data-baseweb="textarea"] {
+  background-color: #0E0E10 !important; border-color: #5A5B63 !important; border-radius: 6px !important; }
+[data-baseweb="input"] input, [data-baseweb="base-input"] input, [data-baseweb="textarea"] textarea, [data-baseweb="select"] input {
+  color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important; caret-color: #F99D20 !important; background-color: transparent !important; }
+[data-baseweb="input"]:focus-within, [data-baseweb="base-input"]:focus-within, [data-baseweb="textarea"]:focus-within {
+  border-color: #F99D20 !important; box-shadow: 0 0 0 1px #F99D20 !important; }
+input::placeholder, textarea::placeholder { color: #8A8B93 !important; -webkit-text-fill-color: #8A8B93 !important; }
+input:-webkit-autofill { -webkit-text-fill-color: #FFFFFF !important; -webkit-box-shadow: 0 0 0 1000px #0E0E10 inset !important; }
+[data-testid="stTextInput"] label p, [data-testid="stSelectbox"] label p { color: #D8D8DC !important; }
+[data-baseweb="popover"] ul { background-color: #1A1A1D !important; }
 </style>
 """,
     unsafe_allow_html=True,
