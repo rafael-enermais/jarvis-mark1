@@ -1,9 +1,9 @@
 [theme]
 base = "dark"
 primaryColor = "#F99D20"
-backgroundColor = "#0F1235"
-secondaryBackgroundColor = "#0A0C2E"
-textColor = "#F5F6FA"
+backgroundColor = "#0E0E10"
+secondaryBackgroundColor = "#1A1A1D"
+textColor = "#F2F2F3"
 
 [server]
 showEmailPrompt = false

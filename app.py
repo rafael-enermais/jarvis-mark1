@@ -10,27 +10,48 @@ Configuracao (Streamlit Cloud > Settings > Secrets, ou arquivo .env local):
   SUPABASE_URL = "https://<ref>.supabase.co"
   SUPABASE_PUBLISHABLE_KEY = "sb_publishable_..."
 """
+import base64
 import os
 from datetime import datetime
 
 import pandas as pd
 import streamlit as st
 
-APP_VERSION = "0.1"
+APP_VERSION = "0.2"  # atualizar a cada versao nova
 SCHEMA = "gestao"
+LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo-enermais-grupo.png")
 
-st.set_page_config(page_title="Jarvis Mark 1 - EnerMais", page_icon="🧭", layout="wide")
+st.set_page_config(page_title="Jarvis Mark 1 — EnerMais", page_icon="🧭", layout="wide")
 
 st.markdown(
     """
 <style>
-[data-testid="stSidebar"] { background-color: #0A0C2E; min-width: 250px; max-width: 250px; }
+[data-testid="stSidebar"] { background-color: #111113; min-width: 250px; max-width: 250px; border-right: 1px solid #2A2B30; }
 [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #F99D20; }
-hr { border-color: #F99D20 !important; opacity: 0.5; }
+hr { border-color: #3A3B40 !important; opacity: 0.6; }
+[data-testid="stMetric"] { background: #1A1A1D; border: 1px solid #2A2B30; border-radius: 8px; padding: 10px 14px; }
+[data-testid="stForm"] { background: #1A1A1D; border: 1px solid #2A2B30; border-radius: 10px; }
 </style>
 """,
     unsafe_allow_html=True,
 )
+
+
+@st.cache_data
+def logo_base64():
+    with open(LOGO_PATH, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+
+def render_logo(height=56):
+    try:
+        st.markdown(
+            f'<img src="data:image/png;base64,{logo_base64()}" height="{height}" '
+            'style="filter: brightness(0) invert(1); margin-bottom: 12px;">',
+            unsafe_allow_html=True,
+        )
+    except Exception:
+        pass
 
 
 def config(chave):
@@ -58,16 +79,30 @@ def novo_cliente():
         st.error("Faltam SUPABASE_URL e SUPABASE_PUBLISHABLE_KEY nos Secrets do app.")
         st.stop()
     if chave.startswith("sb_secret_"):
-        st.error("Chave secreta nos Secrets: troque pela chave PUBLICA (sb_publishable_). Isso e uma trava de seguranca.")
+        st.error("Chave secreta nos Secrets: troque pela chave PÚBLICA (sb_publishable_). Isso é uma trava de segurança.")
         st.stop()
     return create_client(url, chave)
 
 
-def tabela(db, nome, **kw):
-    q = db.schema(SCHEMA).table(nome).select(kw.get("select", "*"))
-    if "order" in kw:
-        q = q.order(kw["order"], desc=kw.get("desc", False))
+def tabela(db, nome, order=None, desc=False, limit=None):
+    q = db.schema(SCHEMA).table(nome).select("*")
+    if order:
+        q = q.order(order, desc=desc)
+    if limit:
+        q = q.limit(limit)
     return pd.DataFrame(q.execute().data)
+
+
+def vazio(v):
+    return "—" if (v is None or (isinstance(v, float) and pd.isna(v)) or str(v).strip() in ("", "None", "nan")) else str(v)
+
+
+def mostrar(df, colunas, nomes=None, **kw):
+    """Tabela sem 'None'/'nan': vazio vira traço."""
+    d = df[colunas].copy().astype(object).where(df[colunas].notna(), "—")
+    if nomes:
+        d = d.rename(columns=nomes)
+    st.dataframe(d, width="stretch", hide_index=True, **kw)
 
 
 # --------------------------------------------------------------------------- login
@@ -76,17 +111,20 @@ if "sessao" not in st.session_state:
     st.session_state.sessao = None
 
 if st.session_state.sessao is None:
-    st.title("🧭 Jarvis Mark 1")
+    render_logo(height=84)
+    st.title("Jarvis Mark 1")
     st.caption("Acompanhamento dos projetos EnerMais. Acesso restrito: entre com seu e-mail e senha.")
-    email = st.text_input("E-mail")
-    senha = st.text_input("Senha", type="password")
-    if st.button("Entrar"):
+    with st.form("login"):  # dentro de um formulario, apertar Enter envia
+        email = st.text_input("E-mail")
+        senha = st.text_input("Senha", type="password")
+        entrar = st.form_submit_button("Entrar")
+    if entrar:
         try:
-            resp = db.auth.sign_in_with_password({"email": email, "password": senha})
+            resp = db.auth.sign_in_with_password({"email": email.strip(), "password": senha})
             st.session_state.sessao = resp.session
             st.rerun()
         except Exception:
-            st.error("E-mail ou senha invalidos.")
+            st.error("E-mail ou senha inválidos.")
     st.stop()
 
 # reanexa o token a cada rerun (senao as consultas vao como visitante e o banco devolve vazio)
@@ -97,16 +135,18 @@ try:
 except Exception:
     meu = []
 if not meu:
-    st.error("Voce entrou, mas este usuario nao esta autorizado a ver o painel. Fale com o Rafael.")
+    st.error("Você entrou, mas este usuário não está autorizado a ver o painel. Fale com o Rafael.")
     if st.button("Sair"):
         st.session_state.sessao = None
         st.rerun()
     st.stop()
 
+PAGINAS = ["Visão geral", "Projetos", "Pendências", "Histórico de evoluções", "Métricas", "Fila de comandos"]
 with st.sidebar:
-    st.header("🧭 Jarvis Mark 1")
+    render_logo(height=64)
+    st.header("Jarvis Mark 1")
     st.caption(f"Logado como: {st.session_state.sessao.user.email}")
-    pagina = st.radio("Ir para", ["Visao geral", "Projetos", "Pendencias", "Metricas", "Fila de comandos"])
+    pagina = st.radio("Ir para", PAGINAS)
     if st.button("🔄 Recarregar dados"):
         st.cache_data.clear()
         st.rerun()
@@ -116,15 +156,15 @@ with st.sidebar:
 
 
 @st.cache_data(ttl=120, show_spinner="Carregando...")
-def carregar(_db, nome, ordem=None):
-    return tabela(_db, nome, order=ordem) if ordem else tabela(_db, nome)
+def carregar(_db, nome, ordem=None, desc=False, limite=None):
+    return tabela(_db, nome, order=ordem, desc=desc, limit=limite)
 
 
 def rotulo_data(v):
     try:
         return datetime.fromisoformat(str(v).replace("Z", "+00:00")).astimezone().strftime("%d/%m/%Y %H:%M")
     except Exception:
-        return "-"
+        return "—"
 
 
 proj = carregar(db, "projetos", "sigla")
@@ -132,16 +172,18 @@ pend = carregar(db, "pendencias")
 mets = carregar(db, "metricas_def", "codigo")
 fila = carregar(db, "fila_comandos")
 sync = carregar(db, "sincronizacoes", "iniciada_em")
+evs = carregar(db, "eventos_status", "ocorrido_em", True, 1500)
+nome_proj = dict(zip(proj["id"], proj["sigla"])) if not proj.empty else {}
 
 # --------------------------------------------------------------------------- paginas
-if pagina == "Visao geral":
-    st.title("Visao geral dos projetos")
+if pagina == "Visão geral":
+    st.title("Visão geral dos projetos")
     if sync.empty:
-        st.warning("A ponte ainda nao enviou nenhuma atualizacao. Rode ponte-mark1.bat no PC do Rafael.")
+        st.warning("A ponte ainda não enviou nenhuma atualização. Rode ponte-mark1.bat no PC do Rafael.")
     else:
         ult = sync.sort_values("iniciada_em").iloc[-1]
         cor = st.success if ult["status"] == "ok" else st.warning
-        cor(f"Ultima atualizacao do vault: {rotulo_data(ult['iniciada_em'])} (resultado: {ult['status']})")
+        cor(f"Última atualização do vault: {rotulo_data(ult['iniciada_em'])} (resultado: {ult['status']})")
     if proj.empty:
         st.info("Nenhum projeto carregado ainda.")
     else:
@@ -150,78 +192,117 @@ if pagina == "Visao geral":
         b.metric("Ativos", int((proj["status"] == "ativo").sum()))
         c.metric("Em planejamento", int((proj["status"] == "planejamento").sum()))
         abertas = pend[pend["status"].isin(["aberta", "em_andamento"])] if not pend.empty else pend
-        d.metric("Pendencias abertas", 0 if abertas.empty else len(abertas))
-        st.subheader("Onde cada projeto esta")
-        vis = proj[["sigla", "nome", "status", "etapa_atual", "proximo_passo", "acesso", "atualizado_vault_em"]].copy()
+        d.metric("Pendências abertas", 0 if abertas.empty else len(abertas))
+        st.subheader("Onde cada projeto está")
+        vis = proj.copy()
         vis["atualizado_vault_em"] = vis["atualizado_vault_em"].map(rotulo_data)
-        st.dataframe(
-            vis.rename(columns={"sigla": "Sigla", "nome": "Projeto", "status": "Status", "etapa_atual": "Etapa",
-                                "proximo_passo": "Proximo passo", "acesso": "Acesso", "atualizado_vault_em": "Handoff atualizado"}),
-            width="stretch", hide_index=True)
+        mostrar(vis, ["sigla", "nome", "status", "etapa_atual", "proximo_passo", "acesso", "atualizado_vault_em"],
+                {"sigla": "Sigla", "nome": "Projeto", "status": "Status", "etapa_atual": "Etapa",
+                 "proximo_passo": "Próximo passo", "acesso": "Acesso", "atualizado_vault_em": "Handoff atualizado"})
+        if not evs.empty:
+            st.subheader("Últimas evoluções")
+            ult_ev = evs.head(8).copy()
+            ult_ev["projeto"] = ult_ev["projeto_id"].map(nome_proj)
+            ult_ev["quando"] = ult_ev["ocorrido_em"].map(lambda v: rotulo_data(v)[:10])
+            mostrar(ult_ev, ["quando", "projeto", "versao", "resumo"],
+                    {"quando": "Data", "projeto": "Projeto", "versao": "Versão", "resumo": "O que mudou"})
 
 elif pagina == "Projetos":
     st.title("Projetos")
     if proj.empty:
         st.info("Nenhum projeto carregado ainda.")
     else:
-        sel = st.selectbox("Projeto", proj["sigla"].tolist(), format_func=lambda s: f"{s} - {proj.loc[proj['sigla'] == s, 'nome'].iloc[0]}")
+        sel = st.selectbox("Projeto", proj["sigla"].tolist(),
+                           format_func=lambda s: f"{s} — {proj.loc[proj['sigla'] == s, 'nome'].iloc[0]}")
         p = proj[proj["sigla"] == sel].iloc[0]
-        st.subheader(p["nome"])
-        st.write(p["descricao"] or "")
+        st.subheader(vazio(p["nome"]))
+        st.write(vazio(p["descricao"]))
         c1, c2, c3 = st.columns(3)
-        c1.metric("Status", p["status"] or "-")
-        c2.metric("Etapa", p["etapa_atual"] or "-")
-        c3.metric("Acesso do app", p["acesso"] or "-")
-        st.write(f"**Proximo passo:** {p['proximo_passo'] or '-'}")
-        st.write(f"**Stack:** {p['stack'] or '-'}  |  **Repositorio:** {p['repositorio'] or '-'}  |  **Pasta no vault:** {p['caminho_vault'] or '-'}")
+        c1.metric("Status", vazio(p["status"]))
+        c2.metric("Etapa", vazio(p["etapa_atual"]))
+        c3.metric("Acesso do app", vazio(p["acesso"]))
+        st.write(f"**Próximo passo:** {vazio(p['proximo_passo'])}")
+        st.write(f"**Stack:** {vazio(p['stack'])}  |  **Repositório:** {vazio(p['repositorio'])}  |  **Pasta no vault:** {vazio(p['caminho_vault'])}")
         pp = pend[pend["projeto_id"] == p["id"]] if not pend.empty else pend
-        st.markdown("**Pendencias deste projeto**")
+        st.markdown("**Pendências deste projeto**")
         if pp.empty:
-            st.caption("Nenhuma pendencia registrada.")
+            st.caption("Nenhuma pendência registrada.")
         else:
-            st.dataframe(pp[["titulo", "depende_de", "prioridade", "status", "prazo"]], width="stretch", hide_index=True)
+            mostrar(pp, ["titulo", "depende_de", "prioridade", "status", "prazo"],
+                    {"titulo": "Pendência", "depende_de": "Depende de", "prioridade": "Prioridade", "status": "Status", "prazo": "Prazo"})
+        ee = evs[evs["projeto_id"] == p["id"]] if not evs.empty else evs
+        st.markdown("**Evoluções deste projeto**")
+        if ee.empty:
+            st.caption("Nenhuma evolução registrada ainda (a ponte lê o versoes.md do projeto).")
+        else:
+            ee = ee.assign(quando=ee["ocorrido_em"].map(lambda v: rotulo_data(v)[:10]))
+            mostrar(ee.head(30), ["quando", "versao", "tipo", "resumo"],
+                    {"quando": "Data", "versao": "Versão", "tipo": "Tipo", "resumo": "O que mudou"})
 
-elif pagina == "Pendencias":
-    st.title("Pendencias")
+elif pagina == "Pendências":
+    st.title("Pendências")
     if pend.empty:
-        st.info("Nenhuma pendencia registrada ainda. Elas entram quando os handoffs ganharem o bloco STATUS.")
+        st.info("Nenhuma pendência registrada ainda. Elas entram quando os handoffs ganharem o bloco PENDÊNCIAS.")
     else:
-        dep = st.multiselect("Depende de", sorted(pend["depende_de"].unique()), default=["rafael"] if "rafael" in set(pend["depende_de"]) else [])
+        deps = sorted(pend["depende_de"].unique())
+        dep = st.multiselect("Depende de", deps, default=["rafael"] if "rafael" in deps else [])
         v = pend if not dep else pend[pend["depende_de"].isin(dep)]
-        nome_proj = dict(zip(proj["id"], proj["sigla"])) if not proj.empty else {}
         v = v.assign(projeto=v["projeto_id"].map(nome_proj))
-        st.dataframe(v[["projeto", "titulo", "depende_de", "prioridade", "status", "prazo"]], width="stretch", hide_index=True)
+        mostrar(v, ["projeto", "titulo", "depende_de", "prioridade", "status", "prazo"],
+                {"projeto": "Projeto", "titulo": "Pendência", "depende_de": "Depende de", "prioridade": "Prioridade",
+                 "status": "Status", "prazo": "Prazo"})
 
-elif pagina == "Metricas":
+elif pagina == "Histórico de evoluções":
+    st.title("Histórico de evoluções")
+    st.caption("Vem do versoes.md de cada projeto (a ponte lê). Nunca é apagado.")
+    if evs.empty:
+        st.info("Ainda não há evoluções carregadas.")
+    else:
+        e = evs.assign(projeto=evs["projeto_id"].map(nome_proj),
+                       quando=evs["ocorrido_em"].map(lambda v: rotulo_data(v)[:10]))
+        f1, f2 = st.columns(2)
+        pj = f1.multiselect("Projeto", sorted(e["projeto"].dropna().unique()))
+        tp = f2.multiselect("Tipo", sorted(e["tipo"].dropna().unique()))
+        if pj:
+            e = e[e["projeto"].isin(pj)]
+        if tp:
+            e = e[e["tipo"].isin(tp)]
+        st.caption(f"{len(e)} registros")
+        mostrar(e, ["quando", "projeto", "versao", "tipo", "resumo"],
+                {"quando": "Data", "projeto": "Projeto", "versao": "Versão", "tipo": "Tipo", "resumo": "O que mudou"})
+
+elif pagina == "Métricas":
     st.title("Indicadores e entregas")
     if mets.empty:
-        st.info("Catalogo vazio. A ponte carrega a matriz do ENERDATA.")
+        st.info("Catálogo vazio. A ponte carrega a matriz do ENERDATA.")
     else:
         f1, f2, f3 = st.columns(3)
         tipo = f1.multiselect("Tipo", ["indicador", "entrega"], default=["indicador", "entrega"])
-        resp = f2.multiselect("Responsavel", sorted(mets["responsavel"].dropna().unique()))
-        sit = f3.multiselect("Situacao", sorted(mets["situacao"].dropna().unique()))
+        resp = f2.multiselect("Responsável", sorted(mets["responsavel"].dropna().unique()))
+        sit = f3.multiselect("Situação", sorted(mets["situacao"].dropna().unique()))
         v = mets[mets["tipo"].isin(tipo)]
         if resp:
             v = v[v["responsavel"].isin(resp)]
         if sit:
             v = v[v["situacao"].isin(sit)]
-        nome_proj = dict(zip(proj["id"], proj["sigla"])) if not proj.empty else {}
         v = v.assign(projeto=v["projeto_id"].map(nome_proj))
         st.caption(f"{len(v)} de {len(mets)} itens")
-        st.dataframe(v[["codigo", "tipo", "nome", "responsavel", "meta", "periodicidade", "projeto", "fonte", "situacao"]],
-                     width="stretch", hide_index=True)
+        mostrar(v, ["codigo", "tipo", "nome", "responsavel", "meta", "periodicidade", "projeto", "fonte", "situacao"],
+                {"codigo": "Código", "tipo": "Tipo", "nome": "Nome", "responsavel": "Responsável", "meta": "Meta",
+                 "periodicidade": "Periodicidade", "projeto": "Projeto", "fonte": "Fonte", "situacao": "Situação"})
 
 elif pagina == "Fila de comandos":
     st.title("Fila de comandos do Jarvis")
-    st.caption("O Jarvis propoe, o Rafael aprova, so o aprovado roda. Nesta versao a fila e so de leitura.")
+    st.caption("O Jarvis propõe, o Rafael aprova, só o aprovado roda. Nesta versão a fila é só de leitura.")
     if fila.empty:
         st.info("Fila vazia.")
     else:
-        st.dataframe(fila[["codigo", "titulo", "status", "proposto_por", "criado_em", "concluido_em"]], width="stretch", hide_index=True)
+        mostrar(fila, ["codigo", "titulo", "status", "proposto_por", "criado_em", "concluido_em"],
+                {"codigo": "Código", "titulo": "Título", "status": "Status", "proposto_por": "Proposto por",
+                 "criado_em": "Criado em", "concluido_em": "Concluído em"})
 
 st.markdown(
     f"""<div style="margin-top:2rem;padding-top:.75rem;border-top:1px solid rgba(245,246,250,.12);font-size:.72rem;color:rgba(245,246,250,.45);">
-Jarvis Mark 1 · painel v{APP_VERSION} · leitura do schema gestao · rafael.nakahara@enermais.com.br</div>""",
+Jarvis Mark 1 · v{APP_VERSION} · dados em tempo real (schema gestao) · rafael.nakahara@enermais.com.br</div>""",
     unsafe_allow_html=True,
 )
