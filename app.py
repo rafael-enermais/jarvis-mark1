@@ -1,5 +1,5 @@
 """
-Jarvis Mark 1 - Painel de acompanhamento dos projetos EnerMais (Streamlit).
+Mark1 - Painel de acompanhamento dos projetos EnerMais (Streamlit).
 
 * So LE. Quem grava no banco e a ponte (script no PC do Rafael), com a chave secreta.
 * Login real pelo Supabase Auth (e-mail e senha). Depois do login, o banco so entrega dados a quem estiver
@@ -17,11 +17,11 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import streamlit as st
 
-APP_VERSION = "0.3.1"  # atualizar a cada versao nova
+APP_VERSION = "0.3.3"  # atualizar a cada versao nova
 SCHEMA = "gestao"
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo-enermais-grupo.png")
 
-st.set_page_config(page_title="Jarvis Mark 1 — EnerMais", page_icon="🧭", layout="wide")
+st.set_page_config(page_title="Mark1 — EnerMais", page_icon="🧭", layout="wide")
 
 st.markdown(
     """
@@ -123,7 +123,7 @@ if "sessao" not in st.session_state:
 
 if st.session_state.sessao is None:
     render_logo(height=84)
-    st.title("Jarvis Mark 1")
+    st.title("Mark1")
     st.caption("Acompanhamento dos projetos EnerMais. Acesso restrito: entre com seu e-mail e senha.")
     with st.form("login"):  # dentro de um formulario, apertar Enter envia
         email = st.text_input("E-mail")
@@ -155,7 +155,7 @@ if not meu:
 PAGINAS = ["Visão geral", "Projetos", "Demandas", "Histórico de evoluções", "Métricas", "Fila de comandos"]
 with st.sidebar:
     render_logo(height=64)
-    st.header("Jarvis Mark 1")
+    st.header("Mark1")
     st.caption(f"Logado como: {st.session_state.sessao.user.email}")
     pagina = st.radio("Ir para", PAGINAS)
     if st.button("🔄 Recarregar dados"):
@@ -351,8 +351,8 @@ elif pagina == "Métricas":
                  "periodicidade": "Periodicidade", "projeto": "Projeto", "fonte": "Fonte", "situacao": "Situação"})
 
 elif pagina == "Fila de comandos":
-    st.title("Fila de comandos do Jarvis")
-    st.caption("O Jarvis propõe, o Rafael aprova, só o aprovado roda. Nesta versão a fila é só de leitura.")
+    st.title("Fila de comandos do Mark1")
+    st.caption("O Mark1 propõe, o Rafael aprova, só o aprovado roda. Nesta versão a fila é só de leitura.")
     if fila.empty:
         st.info("Fila vazia.")
     else:
@@ -362,6 +362,6 @@ elif pagina == "Fila de comandos":
 
 st.markdown(
     f"""<div style="margin-top:2rem;padding-top:.75rem;border-top:1px solid rgba(245,246,250,.12);font-size:.72rem;color:rgba(245,246,250,.45);">
-Jarvis Mark 1 · v{APP_VERSION} · dados em tempo real (schema gestao) · rafael.nakahara@enermais.com.br</div>""",
+Mark1 · v{APP_VERSION} · dados em tempo real (schema gestao) · rafael.nakahara@enermais.com.br</div>""",
     unsafe_allow_html=True,
 )

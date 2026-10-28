@@ -1,4 +1,4 @@
-# Jarvis Mark 1 — painel
+# Mark1 — painel
 
 Painel Streamlit (somente leitura) do acompanhamento de projetos EnerMais. Dados no Supabase (schema `gestao`), alimentados por uma ponte que lê o vault Obsidian. Login obrigatório (Supabase Auth); só quem está em `gestao.usuarios_autorizados` vê dados.
 
