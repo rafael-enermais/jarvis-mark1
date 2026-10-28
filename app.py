@@ -208,18 +208,27 @@ if pagina == "Visão geral":
     if proj.empty:
         st.info("Nenhum projeto carregado ainda.")
     else:
+        eh_org = (proj["tipo"] == "organizacao") if "tipo" in proj.columns else (proj["sigla"] == "__nenhuma__")
+        reais, orgs = proj[~eh_org], proj[eh_org]
         a, b, c, d = st.columns(4)
-        a.metric("Projetos", len(proj))
-        b.metric("Ativos", int((proj["status"] == "ativo").sum()))
-        c.metric("Em planejamento", int((proj["status"] == "planejamento").sum()))
+        a.metric("Projetos", len(reais), help=f"Mais {len(orgs)} organizações (guarda-chuvas, não são apps)")
+        b.metric("Em produção / ativos", int((reais["status"] == "ativo").sum()))
+        c.metric("Em planejamento", int((reais["status"] == "planejamento").sum()))
         abertas = pend[pend["status"].isin(["aberta", "em_andamento"])] if not pend.empty else pend
         d.metric("Pendências abertas", 0 if abertas.empty else len(abertas))
+        COLS_V = ["sigla", "nome", "status", "etapa_atual", "proximo_passo", "acesso", "atualizado_vault_em"]
+        ROT_V = {"sigla": "Sigla", "nome": "Projeto", "status": "Status", "etapa_atual": "Etapa",
+                 "proximo_passo": "Próximo passo", "acesso": "Acesso", "atualizado_vault_em": "Handoff atualizado"}
         st.subheader("Onde cada projeto está")
-        vis = proj.copy()
+        vis = reais.copy()
         vis["atualizado_vault_em"] = vis["atualizado_vault_em"].map(rotulo_data)
-        mostrar(vis, ["sigla", "nome", "status", "etapa_atual", "proximo_passo", "acesso", "atualizado_vault_em"],
-                {"sigla": "Sigla", "nome": "Projeto", "status": "Status", "etapa_atual": "Etapa",
-                 "proximo_passo": "Próximo passo", "acesso": "Acesso", "atualizado_vault_em": "Handoff atualizado"})
+        mostrar(vis, COLS_V, ROT_V)
+        if not orgs.empty:
+            st.subheader("Organizações (guarda-chuvas, não são apps)")
+            ORG_ROTULO = True
+            vo = orgs.copy()
+            vo["atualizado_vault_em"] = vo["atualizado_vault_em"].map(rotulo_data)
+            mostrar(vo, COLS_V, ROT_V)
         if not evs.empty:
             st.subheader("Últimas evoluções")
             ult_ev = evs.head(8).copy()
@@ -233,8 +242,11 @@ elif pagina == "Projetos":
     if proj.empty:
         st.info("Nenhum projeto carregado ainda.")
     else:
-        sel = st.selectbox("Projeto", proj["sigla"].tolist(),
-                           format_func=lambda s: f"{s} — {proj.loc[proj['sigla'] == s, 'nome'].iloc[0]}")
+        def _rot(sg):
+            lin = proj.loc[proj["sigla"] == sg].iloc[0]
+            org = " (organização)" if ("tipo" in proj.columns and lin["tipo"] == "organizacao") else ""
+            return f"{sg} — {lin['nome']}{org}"
+        sel = st.selectbox("Projeto", proj["sigla"].tolist(), format_func=_rot)
         p = proj[proj["sigla"] == sel].iloc[0]
         st.subheader(vazio(p["nome"]))
         st.write(vazio(p["descricao"]))
